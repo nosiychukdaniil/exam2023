@@ -1,15 +1,31 @@
-import requests
-import pprint
-TOKEN = '4f28fc61-db4e-43cf-9520-38fcdbe4f93c'
-USER_AGENT = 'Directory Sync Example'
+import json
+with open('list_st.json') as f:
+    data = json.load(f)
+print(type(data))
 
-headers = {
-        'Authorization': 'OAuth ' + TOKEN,
-        'User-Agent': USER_AGENT,
-    }
 
-response = requests.get('https://api.weather.yandex.ru/v2/informers?lat=55.75396&lon=37.620393', headers=headers)
-# response.raise_for_status()
-response_data = response.json()
-result = response_data
-pprint(result)
+#Поиск в списке словарей
+def find_country(text):
+    for i in data['countries']:
+        if i['title'] == text:
+            return data['countries'].index(i)
+        else:
+            pass
+def find_region(country, region):
+    temp = find_country(country)
+    for i in data['countries'][temp]['regions']:
+        if i['title'] == region:
+            return data['countries'][temp]['regions'].index(i)
+        else:
+            pass
+def find_code(country, region, city):
+    temp1 = find_country(country)
+    temp2 = find_region(country, region)
+    for i in data['countries'][temp1]['regions'][temp2]['settlements']:
+        if i['title'] == city:
+            temp3 = data['countries'][temp1]['regions'][temp2]['settlements'].index(i)
+            return data['countries'][temp1]['regions'][temp2]['settlements'][temp3]['codes']['yandex_code']
+        else:
+            pass
+
+
