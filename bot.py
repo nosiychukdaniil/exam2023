@@ -1,4 +1,4 @@
-import json
+import json, requests, pprint
 with open('list_st.json') as f:
     data = json.load(f)
 print(type(data))
@@ -28,4 +28,13 @@ def find_code(country, region, city):
         else:
             pass
 
-
+param = {
+    'apikey': 'ace58ce6-ffcb-4755-ba76-bcd5b3b4ba57',
+    'transport_types': 'train',
+    'from': find_code("Россия", 'Алтайский край','Алейск'),
+    'to': find_code("Россия", 'Алтайский край','Барнаул'),
+    'format': 'json',
+    'lang': 'ru_RU',
+    'date': '2023-01-12'
+    }
+url = 'https://api.rasp.yandex.net/v3.0/search/?'
