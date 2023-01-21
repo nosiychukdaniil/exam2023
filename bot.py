@@ -6,8 +6,8 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.storage import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
-BOT_TOKEN = '5721867505:AAHHQh8KdLuaAKQhqasx_FyeHA-TRDHsvAI'
-YANDEX_TOKEN = 'ace58ce6-ffcb-4755-ba76-bcd5b3b4ba57'
+BOT_TOKEN = os.getenv('BTOKEN')
+YANDEX_TOKEN = os.getenv('YTOKEN')
 URL = 'https://api.rasp.yandex.net/v3.0/search/?'
 URL_COPYRIGHT = 'https://api.rasp.yandex.net/v3.0/copyright/?'
 URL_STATIONS_LIST = 'https://api.rasp.yandex.net/v3.0/stations_list/?'
@@ -24,7 +24,7 @@ storage = MemoryStorage()
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot, storage=storage)
 
-#Определяем класс состояний конечного автомата FSM и сами состояния, все свойства класса наследуются от суперкласса StatesGroup
+#Определяем класс состояний конечного автомата FSM и сами состояния, все свойства класса наследуются от родительского класса StatesGroup
 class FSM(StatesGroup):
     date_state = State()
     from_country_state = State()
@@ -36,7 +36,7 @@ class FSM(StatesGroup):
     transport_type_state = State()
 
 
-
+# Клавиатуры
 plane = KeyboardButton('самолет')
 train = KeyboardButton('поезд')
 suburban = KeyboardButton('электричка')
@@ -46,8 +46,6 @@ helicopter = KeyboardButton('вертолет')
 dict_transport_types = {'самолет':'plane','поезд':'train','электричка':'suburban','автобус':'bus','морской транспорт':'water','вертолет':'helicopter'}
 kb_transport_types = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
 kb_transport_types.row(bus,train, suburban).row(plane,helicopter)
-
-
 russia = KeyboardButton('Россия')
 ak = KeyboardButton('Алтайский край')
 kb_russia = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).add(russia)
@@ -59,21 +57,17 @@ stations_json = requests.get(URL_STATIONS_LIST, params=param2).json()
 
 
 def find_code(country, region, city):
-    """Возвращает индекс словаря содержащего искомую страну """
+    """Возвращает код города из справочника яндекса который используется как параметр запроса к API """
     try:
         for i in stations_json['countries']:
             if i['title'] == country:
                 temp1 = stations_json['countries'].index(i)
-            else:
-                pass
     except:
             pass
     try:
         for i in stations_json['countries'][temp1]['regions']:
             if i['title'] == region:
                 temp2 = stations_json['countries'][temp1]['regions'].index(i)
-            else:
-                pass
     except:
         pass
     try:
@@ -81,29 +75,28 @@ def find_code(country, region, city):
             if i['title'] == city:
                 temp3 = stations_json['countries'][temp1]['regions'][temp2]['settlements'].index(i)
                 return stations_json['countries'][temp1]['regions'][temp2]['settlements'][temp3]['codes']['yandex_code']
-            else:
-                pass
     except:
         pass
 
 
 def parsing_api(request: dict):
+    """Парсим строку из ответа API для вывода результата работы бота"""
     prt = ""
     count = 1
     try:
         for i in request['segments']:
-            prt += f"{count}.\nВремя отправления: {i['arrival']}\nВремя прибытия: {i['departure']}\nВремя в пути: {float(i['duration'])/60/60} ч.\nРейс: {i['thread']['title']}\nЦена билета: {float(i['tickets_info']['places'][0]['price']['whole'])+float(i['tickets_info']['places'][0]['price']['cents'])/100}\n\n"
+            prt += f"{count}.\nВремя отправления: {i['arrival']}\nВремя прибытия: {i['departure']}\nВремя в пути: {float(i['duration'])/60/60} ч.\nРейс: {i['thread']['title']}\nЦена билета: {float(i['tickets_info']['places'][0]['price']['whole'])+float(i['tickets_info']['places'][0]['price']['cents'])/100} руб.\n\n"
             count += 1
     except:
         return None
     return prt
 
 
-#   Отправляет сообщение при отправке команд start или help
+#   Отправляет сообщение при отправке команд start
 @dp.message_handler(commands=['start'], state=None)
 async def process_start_command(message: types.Message):
     await FSM.date_state.set()
-    await message.reply(f'Здравствуйте, с помощью данного бота вы можете узнать расписание транспорта между интерисующими вас населенными пунктами\n\nЧтобы продолжить работу введите дату планируемой поездки в формате ГГГГ-ММ-ДД\n\n{copyright_text}\n{copyright_url}')
+    await message.reply(f'Здравствуйте, с помощью данного бота вы можете узнать расписание транспорта между интересующими вас населенными пунктами\n\nЧтобы продолжить работу введите дату планируемой поездки в формате ГГГГ-ММ-ДД, например 2023-01-14\n\n{copyright_text}\n{copyright_url}')
 
 @dp.message_handler(state=FSM.date_state)
 async def print_date(message : types.Message, state : FSM):
@@ -152,7 +145,7 @@ async def print_to_city(message : types.Message, state : FSM):
     async with state.proxy() as data:
         data['to_city'] = message.text
     await FSM.next()
-    await message.reply("Введите вид транспорта на котором вы хотите отправиться:", reply_markup=kb_transport_types)
+    await message.reply("Выберите вид транспорта на котором вы хотите отправиться:", reply_markup=kb_transport_types)
 
 @dp.message_handler(state=FSM.transport_type_state)
 async def print_to_city(message : types.Message, state : FSM):
@@ -174,7 +167,7 @@ async def print_to_city(message : types.Message, state : FSM):
                             mess = parsing_api(rasp_api)[x: x + MESS_MAX_LENGTH]
                             await message.reply(mess)
             else:
-                await message.reply("Ничего нет")
+                await message.reply("По вашему запросу нет рузультатов, попробуйте еще раз \n/start")
             await state.finish()
     except:
         await message.reply('Попробуйте еще раз \n/start')
